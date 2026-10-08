@@ -64,14 +64,32 @@ object Scryfall {
         Sample(total, pool.distinctBy { it.artUrl ?: it.cardUrl }.shuffled().take(count))
     }
 
-    /** One random card matching the search, chosen by Scryfall across all results. */
+    /**
+     * One random result from the same search the preview uses, so options like
+     * unique:prints and the art-level de-duplication apply here too.
+     * (Scryfall's /cards/random endpoint ignores those and returns one printing per card.)
+     */
     suspend fun random(query: String): Card = withContext(Dispatchers.IO) {
-        val url = "$BASE/cards/random".toHttpUrl().newBuilder()
-            .addQueryParameter("q", query)
-            .build()
+        val first = searchPage(query, 1)
+        val total = first.optInt("total_cards", 0)
+        val firstData = first.optJSONArray("data")
+        if (total <= 0 || firstData == null || firstData.length() == 0) {
+            throw ScryfallException("Your search didn't match any cards.")
+        }
         repeat(5) { attempt ->
-            if (attempt > 0) delay(150)
-            parseCard(getJson(url))?.let { return@withContext it }
+            val index = Random.nextInt(total)
+            val page = index / PAGE_SIZE + 1
+            val data = if (page == 1) {
+                firstData
+            } else {
+                delay(120) // Scryfall asks for 50-100 ms between requests
+                runCatching { searchPage(query, page).optJSONArray("data") }.getOrNull()
+            }
+            if (data != null && data.length() > 0) {
+                val card = data.optJSONObject(minOf(index % PAGE_SIZE, data.length() - 1))
+                card?.let(::parseCard)?.let { return@withContext it }
+            }
+            if (attempt > 0) delay(120)
         }
         throw ScryfallException("Couldn't find a card with an image for this search.")
     }
