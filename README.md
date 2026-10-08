@@ -24,7 +24,22 @@ Every push to `main` builds the app with GitHub Actions and publishes `ScryWall.
 on the repo's **Releases** page. On your phone, open the latest release, tap
 `ScryWall.apk`, and allow installing from your browser when Android asks.
 
-All builds share the same signing key (`keystore/`), so new versions install over old ones.
+Every release is signed with the same key, so new versions install over old ones. To check
+a download, compare it with the values in the release notes:
+
+- **Signing certificate SHA-256:**
+  `32:AF:72:02:29:F1:E6:C1:AD:B7:11:54:C5:FC:2D:EB:5B:EF:1C:41:C3:31:63:6E:7D:09:DC:41:1C:B4:C1:17`
+- **APK SHA-256:** listed in each release's notes.
+
+> Builds before October 2026 used an older key. If you installed one of those, uninstall
+> ScryWall once before installing a newer release.
+
+### Signing setup (maintainers)
+
+The release key is never stored in the repo. The workflow reads it from two repository
+secrets: `SCRYWALL_KEYSTORE_BASE64` (the `.jks` file, base64-encoded) and
+`SCRYWALL_KEYSTORE_PASSWORD`. Local debug builds use Android's standard debug key and
+install as a separate app (`com.hyrumrichardson.scrywall.debug`).
 
 ## Notes
 

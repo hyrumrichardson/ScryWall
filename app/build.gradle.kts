@@ -16,24 +16,29 @@ android {
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
-    // A fixed signing key committed to the repo so every build can be installed
-    // over the previous one without uninstalling. Fine for a personal app.
+    // The release key never lives in the repo. CI decodes it from GitHub secrets and
+    // passes it in through these variables. Without them, release builds are unsigned
+    // and debug builds use Android's standard per-machine debug key.
+    val releaseKeystore = System.getenv("SCRYWALL_KEYSTORE")
     signingConfigs {
-        create("shared") {
-            storeFile = rootProject.file("keystore/scrywall.jks")
-            storePassword = "scrywall"
-            keyAlias = "scrywall"
-            keyPassword = "scrywall"
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("SCRYWALL_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SCRYWALL_KEY_ALIAS") ?: "scrywall"
+                keyPassword = System.getenv("SCRYWALL_KEYSTORE_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("shared")
+            // Installs alongside the release app, since the two are signed with different keys.
+            applicationIdSuffix = ".debug"
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("shared")
+            if (releaseKeystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
