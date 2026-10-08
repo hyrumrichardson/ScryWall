@@ -44,6 +44,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var rotating by mutableStateOf(prefs.rotating); private set
     var activeQuery by mutableStateOf(prefs.activeQuery); private set
     var activeSource by mutableStateOf(prefs.activeSource); private set
+    var activeDeckName by mutableStateOf(prefs.activeDeckName); private set
     var activeInterval by mutableStateOf(prefs.interval); private set
     var lastCard by mutableStateOf(prefs.lastCard); private set
     var lastChanged by mutableLongStateOf(prefs.lastChanged); private set
@@ -146,6 +147,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         saveQuery(q)
         prefs.activeQuery = q
         prefs.activeSource = source
+        // Name of the loaded deck for now; changeNow() refreshes it from Moxfield.
+        prefs.activeDeckName = if (source == Source.MOXFIELD) deckName.orEmpty() else ""
         val src = source
         viewModelScope.launch {
             applying = true
@@ -158,6 +161,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 rotating = willRotate
                 activeQuery = q
                 activeSource = src
+                activeDeckName = prefs.activeDeckName
                 activeInterval = interval
                 lastCard = name
                 lastChanged = prefs.lastChanged
@@ -183,6 +187,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val name = WallpaperSetter.changeNow(getApplication())
                 lastCard = name
                 lastChanged = prefs.lastChanged
+                activeDeckName = prefs.activeDeckName
                 message = "Wallpaper set to $name."
             } catch (e: CancellationException) {
                 throw e

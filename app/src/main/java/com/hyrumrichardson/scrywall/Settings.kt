@@ -12,11 +12,6 @@ enum class Source(val label: String) {
         SCRYFALL -> Scryfall.sample(input)
         MOXFIELD -> Moxfield.sample(input)
     }
-
-    suspend fun random(input: String): Card = when (this) {
-        SCRYFALL -> Scryfall.random(input)
-        MOXFIELD -> Moxfield.random(input)
-    }
 }
 
 enum class ImageStyle(val label: String) {
@@ -101,6 +96,11 @@ class Prefs(context: Context) {
     var activeSource: Source
         get() = enumOr(sp.getString("activeSource", null), Source.SCRYFALL)
         set(v) = sp.edit().putString("activeSource", v.name).apply()
+
+    /** Name of the active Moxfield deck, refreshed each time the wallpaper changes. */
+    var activeDeckName: String
+        get() = sp.getString("activeDeckName", "") ?: ""
+        set(v) = sp.edit().putString("activeDeckName", v).apply()
 
     var rotating: Boolean
         get() = sp.getBoolean("rotating", false)

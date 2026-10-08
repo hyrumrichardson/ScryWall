@@ -327,8 +327,12 @@ private fun StatusCard(vm: MainViewModel) {
             }
             Text(
                 if (vm.rotating) {
-                    val from = if (vm.activeSource == Source.MOXFIELD) "Moxfield deck" else "search"
-                    "Changes ${vm.activeInterval.phrase} from $from: ${vm.activeQuery}"
+                    val from = if (vm.activeSource == Source.MOXFIELD) {
+                        "Moxfield deck: ${vm.activeDeckName.ifBlank { vm.activeQuery }}"
+                    } else {
+                        "search: ${vm.activeQuery}"
+                    }
+                    "Changes ${vm.activeInterval.phrase} from $from"
                 }
                 else "Not changing automatically.",
                 style = MaterialTheme.typography.bodySmall,

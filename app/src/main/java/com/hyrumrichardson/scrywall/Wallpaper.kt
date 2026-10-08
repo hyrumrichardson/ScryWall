@@ -43,32 +43,82 @@ object WallpaperRenderer {
         val sw = src.width.toFloat()
         val sh = src.height.toFloat()
 
-        fun drawAt(s: Float, bmp: Bitmap = src, bw: Float = sw, bh: Float = sh) {
-            val dw = bw * s
-            val dh = bh * s
+        fun drawAt(s: Float) {
+            val dw = sw * s
+            val dh = sh * s
             val left = (w - dw) / 2f
             val top = (h - dh) / 2f
-            canvas.drawBitmap(bmp, null, RectF(left, top, left + dw, top + dh), paint)
+            canvas.drawBitmap(src, null, RectF(left, top, left + dw, top + dh), paint)
         }
 
         when (mode) {
             ScaleMode.FILL -> drawAt(max(w / sw, h / sh))
             ScaleMode.FIT -> drawAt(min(w / sw, h / sh))
             ScaleMode.FIT_BLUR -> {
-                // Cheap blur: shrink the image to a few pixels, then let bilinear
-                // filtering smear it back up to full size.
-                val tinyW = max(1, (sw / 28f).roundToInt())
-                val tinyH = max(1, (sh / 28f).roundToInt())
-                val tiny = Bitmap.createScaledBitmap(src, tinyW, tinyH, true)
-                drawAt(max(w / tinyW.toFloat(), h / tinyH.toFloat()), tiny, tinyW.toFloat(), tinyH.toFloat())
+                // Blur a 1/8-size screen-filling copy (cheap, and blur loses no detail
+                // that matters), then let bilinear filtering scale it back up.
+                val smallW = max(1, w / 8)
+                val smallH = max(1, h / 8)
+                val small = Bitmap.createBitmap(smallW, smallH, Bitmap.Config.ARGB_8888)
+                Canvas(small).apply {
+                    drawColor(Color.BLACK)
+                    val s = max(smallW / sw, smallH / sh)
+                    val dw = sw * s
+                    val dh = sh * s
+                    val l = (smallW - dw) / 2f
+                    val t = (smallH - dh) / 2f
+                    drawBitmap(src, null, RectF(l, t, l + dw, t + dh), paint)
+                }
+                boxBlur(small, radius = max(1, smallW / 14))
+                canvas.drawBitmap(small, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), paint)
+                small.recycle()
                 canvas.drawColor(Color.argb(90, 0, 0, 0))
-                tiny.recycle()
                 drawAt(min(w / sw, h / sh))
             }
             ScaleMode.STRETCH -> canvas.drawBitmap(src, null, RectF(0f, 0f, w.toFloat(), h.toFloat()), paint)
             ScaleMode.CENTER -> drawAt(scale)
         }
         return out
+    }
+
+    /** Three box-blur passes in place, which together look close to a Gaussian blur. */
+    private fun boxBlur(bmp: Bitmap, radius: Int, passes: Int = 3) {
+        val w = bmp.width
+        val h = bmp.height
+        val a = IntArray(w * h)
+        val b = IntArray(w * h)
+        bmp.getPixels(a, 0, w, 0, 0, w, h)
+        repeat(passes) {
+            blurRows(a, b, w, h, radius) // rows of a -> columns of b
+            blurRows(b, a, h, w, radius) // and back again, so a is upright
+        }
+        bmp.setPixels(a, 0, w, 0, 0, w, h)
+    }
+
+    /** Blurs each row of [src] (w x h) and writes the result transposed into [dst] (h x w). */
+    private fun blurRows(src: IntArray, dst: IntArray, w: Int, h: Int, r: Int) {
+        val div = 2 * r + 1
+        for (y in 0 until h) {
+            val row = y * w
+            var sr = 0
+            var sg = 0
+            var sb = 0
+            for (i in -r..r) {
+                val p = src[row + i.coerceIn(0, w - 1)]
+                sr += p shr 16 and 0xFF
+                sg += p shr 8 and 0xFF
+                sb += p and 0xFF
+            }
+            for (x in 0 until w) {
+                dst[x * h + y] = (0xFF shl 24) or ((sr / div) shl 16) or ((sg / div) shl 8) or (sb / div)
+                // Slide the window: add the pixel entering on the right, drop the one leaving on the left.
+                val add = src[row + min(x + r + 1, w - 1)]
+                val sub = src[row + max(x - r, 0)]
+                sr += (add shr 16 and 0xFF) - (sub shr 16 and 0xFF)
+                sg += (add shr 8 and 0xFF) - (sub shr 8 and 0xFF)
+                sb += (add and 0xFF) - (sub and 0xFF)
+            }
+        }
     }
 }
 
@@ -82,7 +132,11 @@ object WallpaperSetter {
         val query = prefs.activeQuery.ifBlank { prefs.query }
         if (query.isBlank()) throw SourceException("No search saved yet.")
 
-        val card = prefs.activeSource.random(query)
+        val card = when (prefs.activeSource) {
+            Source.SCRYFALL -> Scryfall.random(query)
+            // Keep the saved name current in case the deck is renamed on Moxfield.
+            Source.MOXFIELD -> Moxfield.deck(query).also { prefs.activeDeckName = it.name }.cards.random()
+        }
         val url = card.imageUrl(prefs.style) ?: throw SourceException("Card has no image.")
         val src = Scryfall.downloadBitmap(url)
         val (w, h) = WallpaperRenderer.screenSize(context)

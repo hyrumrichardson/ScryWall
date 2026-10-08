@@ -26,8 +26,6 @@ object Moxfield {
         return Sample(deck.cards.size, deck.cards.shuffled().take(count), deck.name)
     }
 
-    suspend fun random(input: String): Card = deck(input).cards.random()
-
     /** Every distinct printing in the deck, maybeboard excluded. */
     suspend fun deck(input: String): Deck = withContext(Dispatchers.IO) {
         val id = deckId(input) ?: throw SourceException("That doesn't look like a Moxfield deck link.")
