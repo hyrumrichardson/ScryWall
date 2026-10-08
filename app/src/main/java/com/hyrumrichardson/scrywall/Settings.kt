@@ -3,6 +3,22 @@ package com.hyrumrichardson.scrywall
 import android.app.WallpaperManager
 import android.content.Context
 
+/** Where cards come from: a Scryfall search or a public Moxfield deck. */
+enum class Source(val label: String) {
+    SCRYFALL("Scryfall"),
+    MOXFIELD("Moxfield");
+
+    suspend fun sample(input: String): Sample = when (this) {
+        SCRYFALL -> Scryfall.sample(input)
+        MOXFIELD -> Moxfield.sample(input)
+    }
+
+    suspend fun random(input: String): Card = when (this) {
+        SCRYFALL -> Scryfall.random(input)
+        MOXFIELD -> Moxfield.random(input)
+    }
+}
+
 enum class ImageStyle(val label: String) {
     ART("Art only"),
     CARD("Full card"),
@@ -52,6 +68,15 @@ class Prefs(context: Context) {
         get() = sp.getString("query", "") ?: ""
         set(v) = sp.edit().putString("query", v).apply()
 
+    /** Moxfield deck link, kept separately so switching sources doesn't lose the search. */
+    var deck: String
+        get() = sp.getString("deck", "") ?: ""
+        set(v) = sp.edit().putString("deck", v).apply()
+
+    var source: Source
+        get() = enumOr(sp.getString("source", null), Source.SCRYFALL)
+        set(v) = sp.edit().putString("source", v.name).apply()
+
     var style: ImageStyle
         get() = enumOr(sp.getString("style", null), ImageStyle.ART)
         set(v) = sp.edit().putString("style", v.name).apply()
@@ -68,10 +93,14 @@ class Prefs(context: Context) {
         get() = enumOr(sp.getString("interval", null), Interval.D1)
         set(v) = sp.edit().putString("interval", v.name).apply()
 
-    /** The query the rotation actually uses (set when the user taps "Set wallpaper"). */
+    /** The query or deck link the rotation actually uses (set when the user taps "Set wallpaper"). */
     var activeQuery: String
         get() = sp.getString("activeQuery", "") ?: ""
         set(v) = sp.edit().putString("activeQuery", v).apply()
+
+    var activeSource: Source
+        get() = enumOr(sp.getString("activeSource", null), Source.SCRYFALL)
+        set(v) = sp.edit().putString("activeSource", v.name).apply()
 
     var rotating: Boolean
         get() = sp.getBoolean("rotating", false)

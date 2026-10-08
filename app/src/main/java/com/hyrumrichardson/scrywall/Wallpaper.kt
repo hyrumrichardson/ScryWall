@@ -74,16 +74,16 @@ object WallpaperRenderer {
 
 object WallpaperSetter {
     /**
-     * Picks a random card from the saved search and sets it as the wallpaper.
+     * Picks a random card from the saved search or deck and sets it as the wallpaper.
      * Returns the card's name.
      */
     suspend fun changeNow(context: Context): String {
         val prefs = Prefs(context)
         val query = prefs.activeQuery.ifBlank { prefs.query }
-        if (query.isBlank()) throw ScryfallException("No search saved yet.")
+        if (query.isBlank()) throw SourceException("No search saved yet.")
 
-        val card = Scryfall.random(query)
-        val url = card.imageUrl(prefs.style) ?: throw ScryfallException("Card has no image.")
+        val card = prefs.activeSource.random(query)
+        val url = card.imageUrl(prefs.style) ?: throw SourceException("Card has no image.")
         val src = Scryfall.downloadBitmap(url)
         val (w, h) = WallpaperRenderer.screenSize(context)
 

@@ -6,7 +6,10 @@ An Android app that sets your wallpaper to Magic: The Gathering card art from an
 ## How it works
 
 1. Type a Scryfall search (for example `t:dragon is:fullart` or `a:"Rebecca Guay"`).
-2. Tap **Search** to see 5 random matches. Tap any of them to preview it.
+   Or flip the **Moxfield** switch in the search box and paste a link to a public (or unlisted)
+   Moxfield deck, such as `https://moxfield.com/decks/abc123`. Every card in the deck except the
+   maybeboard is used.
+2. Tap **Search** (or **Load deck**) to see 5 random cards. Tap any of them to preview it.
 3. Choose:
    - **Image**: the art alone, or the whole card
    - **Scaling**: Fill, Fit, Fit + blur, Stretch or Center

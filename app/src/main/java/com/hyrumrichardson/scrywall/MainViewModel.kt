@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -21,7 +22,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
     val screen: Pair<Int, Int> = WallpaperRenderer.screenSize(app)
 
-    var query by mutableStateOf(prefs.query)
+    var source by mutableStateOf(prefs.source); private set
+    /** The Scryfall search or Moxfield deck link, depending on [source]. */
+    var query by mutableStateOf(if (prefs.source == Source.MOXFIELD) prefs.deck else prefs.query)
+    var deckName by mutableStateOf<String?>(null); private set
     var searching by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
     var total by mutableIntStateOf(0); private set
@@ -39,6 +43,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var applying by mutableStateOf(false); private set
     var rotating by mutableStateOf(prefs.rotating); private set
     var activeQuery by mutableStateOf(prefs.activeQuery); private set
+    var activeSource by mutableStateOf(prefs.activeSource); private set
     var activeInterval by mutableStateOf(prefs.interval); private set
     var lastCard by mutableStateOf(prefs.lastCard); private set
     var lastChanged by mutableLongStateOf(prefs.lastChanged); private set
@@ -47,27 +52,53 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val sourceCache = mutableMapOf<String, Bitmap>()
     private var previewJob: Job? = null
 
+    private var searchJob: Job? = null
+
+    fun updateSource(v: Source) {
+        if (v == source) return
+        saveQuery(query.trim())
+        source = v
+        prefs.source = v
+        query = if (v == Source.MOXFIELD) prefs.deck else prefs.query
+        // Results from the other source no longer apply.
+        searchJob?.cancel()
+        previewJob?.cancel()
+        searching = false
+        previewLoading = false
+        samples = emptyList()
+        total = 0
+        deckName = null
+        preview = null
+        error = null
+    }
+
+    private fun saveQuery(q: String) {
+        if (source == Source.MOXFIELD) prefs.deck = q else prefs.query = q
+    }
+
     fun search() {
         val q = query.trim()
         if (q.isEmpty() || searching) return
-        prefs.query = q
-        viewModelScope.launch {
+        saveQuery(q)
+        val src = source
+        searchJob = viewModelScope.launch {
             searching = true
             error = null
             try {
-                val result = Scryfall.sample(q)
+                val result = src.sample(q)
                 samples = result.cards
                 total = result.total
+                deckName = result.deckName
                 selected = 0
                 refreshPreview()
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: ScryfallException) {
+            } catch (e: SourceException) {
                 error = e.message
             } catch (e: Exception) {
-                error = "Couldn't reach Scryfall. Check your connection and try again."
+                error = "Couldn't reach ${src.label}. Check your connection and try again."
             } finally {
-                searching = false
+                if (isActive) searching = false
             }
         }
     }
@@ -103,7 +134,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 preview = null
             } finally {
-                previewLoading = false
+                // A cancelled job must not hide the spinner of the job that replaced it.
+                if (isActive) previewLoading = false
             }
         }
     }
@@ -111,8 +143,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun apply() {
         val q = query.trim()
         if (q.isEmpty() || applying) return
-        prefs.query = q
+        saveQuery(q)
         prefs.activeQuery = q
+        prefs.activeSource = source
+        val src = source
         viewModelScope.launch {
             applying = true
             message = null
@@ -123,13 +157,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 prefs.rotating = willRotate
                 rotating = willRotate
                 activeQuery = q
+                activeSource = src
                 activeInterval = interval
                 lastCard = name
                 lastChanged = prefs.lastChanged
                 message = "Wallpaper set to $name."
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: ScryfallException) {
+            } catch (e: SourceException) {
                 message = e.message
             } catch (e: Exception) {
                 message = "Couldn't set the wallpaper: ${e.message ?: "unknown error"}"

@@ -7,15 +7,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
-class ScryfallException(message: String) : Exception(message)
+/** A problem worth showing the user as-is (bad search, missing deck, ...). */
+class SourceException(message: String) : Exception(message)
 
 data class Card(
     val name: String,
@@ -34,17 +33,13 @@ data class Card(
     }
 }
 
-data class Sample(val total: Int, val cards: List<Card>)
+/** [deckName] is set when the cards come from a Moxfield deck. */
+data class Sample(val total: Int, val cards: List<Card>, val deckName: String? = null)
 
 /** Minimal client for the public Scryfall API (https://scryfall.com/docs/api). */
 object Scryfall {
     private const val BASE = "https://api.scryfall.com"
     private const val PAGE_SIZE = 175
-
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
 
     /** Up to [count] random cards from the search, plus the total number of matches. */
     suspend fun sample(query: String, count: Int = 5): Sample = withContext(Dispatchers.IO) {
@@ -60,7 +55,7 @@ object Scryfall {
             delay(120) // Scryfall asks for 50-100 ms between requests
             runCatching { pool += parseCards(searchPage(query, page)) }
         }
-        if (pool.isEmpty()) throw ScryfallException("None of the matching cards have images.")
+        if (pool.isEmpty()) throw SourceException("None of the matching cards have images.")
         Sample(total, pool.distinctBy { it.artUrl ?: it.cardUrl }.shuffled().take(count))
     }
 
@@ -74,7 +69,7 @@ object Scryfall {
         val total = first.optInt("total_cards", 0)
         val firstData = first.optJSONArray("data")
         if (total <= 0 || firstData == null || firstData.length() == 0) {
-            throw ScryfallException("Your search didn't match any cards.")
+            throw SourceException("Your search didn't match any cards.")
         }
         repeat(5) { attempt ->
             val index = Random.nextInt(total)
@@ -91,12 +86,12 @@ object Scryfall {
             }
             if (attempt > 0) delay(120)
         }
-        throw ScryfallException("Couldn't find a card with an image for this search.")
+        throw SourceException("Couldn't find a card with an image for this search.")
     }
 
     suspend fun downloadBitmap(url: String): Bitmap = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
-        http.newCall(request).execute().use { resp ->
+        val request = Request.Builder().url(url).build()
+        Net.http.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) throw IOException("Image download failed (HTTP ${resp.code})")
             val body = resp.body ?: throw IOException("Empty image response")
             BitmapFactory.decodeStream(body.byteStream())
@@ -116,10 +111,9 @@ object Scryfall {
     private fun getJson(url: HttpUrl): JSONObject {
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", USER_AGENT)
             .header("Accept", "application/json")
             .build()
-        http.newCall(request).execute().use { resp ->
+        Net.http.newCall(request).execute().use { resp ->
             val body = resp.body?.string().orEmpty()
             val json = try {
                 JSONObject(body)
@@ -127,7 +121,7 @@ object Scryfall {
                 throw IOException("Unexpected response from Scryfall (HTTP ${resp.code})")
             }
             if (json.optString("object") == "error") {
-                throw ScryfallException(json.optString("details", "Scryfall returned an error."))
+                throw SourceException(json.optString("details", "Scryfall returned an error."))
             }
             if (!resp.isSuccessful) throw IOException("Scryfall request failed (HTTP ${resp.code})")
             return json
@@ -155,5 +149,14 @@ object Scryfall {
         return card.takeIf { it.artUrl != null || it.cardUrl != null }
     }
 
-    private const val USER_AGENT = "ScryWall/1.0 (Android wallpaper app)"
+    /** Builds image URLs straight from a Scryfall card id, without an API call. */
+    fun cardFromId(id: String, name: String): Card {
+        fun url(type: String, ext: String) = "https://cards.scryfall.io/$type/front/${id[0]}/${id[1]}/$id.$ext"
+        return Card(
+            name = name,
+            artUrl = url("art_crop", "jpg"),
+            cardUrl = url("png", "png"),
+            thumbUrl = url("normal", "jpg"),
+        )
+    }
 }

@@ -48,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -66,6 +67,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -114,13 +116,32 @@ fun ScryWallScreen(vm: MainViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // ---- Search ----
+            val moxfield = vm.source == Source.MOXFIELD
             OutlinedTextField(
                 value = vm.query,
                 onValueChange = { vm.query = it },
-                label = { Text("Scryfall search") },
-                placeholder = { Text("e.g. t:dragon is:fullart") },
+                label = { Text(if (moxfield) "Moxfield deck link" else "Scryfall search") },
+                placeholder = {
+                    Text(if (moxfield) "e.g. https://moxfield.com/decks/…" else "e.g. t:dragon is:fullart")
+                },
+                trailingIcon = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(end = 8.dp),
+                    ) {
+                        Text("Moxfield", style = MaterialTheme.typography.labelSmall)
+                        Spacer(Modifier.width(4.dp))
+                        Switch(
+                            checked = moxfield,
+                            onCheckedChange = { vm.updateSource(if (it) Source.MOXFIELD else Source.SCRYFALL) },
+                        )
+                    }
+                },
                 maxLines = 3,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardOptions = KeyboardOptions(
+                    imeAction = ImeAction.Search,
+                    keyboardType = if (moxfield) KeyboardType.Uri else KeyboardType.Text,
+                ),
                 keyboardActions = KeyboardActions(onSearch = {
                     focus.clearFocus()
                     vm.search()
@@ -131,10 +152,12 @@ fun ScryWallScreen(vm: MainViewModel = viewModel()) {
                 Button(
                     onClick = { focus.clearFocus(); vm.search() },
                     enabled = vm.query.isNotBlank() && !vm.searching,
-                ) { Text("Search") }
+                ) { Text(if (moxfield) "Load deck" else "Search") }
                 Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { uri.openUri("https://scryfall.com/docs/syntax") }) {
-                    Text("Syntax help")
+                if (!moxfield) {
+                    TextButton(onClick = { uri.openUri("https://scryfall.com/docs/syntax") }) {
+                        Text("Syntax help")
+                    }
                 }
             }
             if (vm.searching) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -147,8 +170,10 @@ fun ScryWallScreen(vm: MainViewModel = viewModel()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         SectionTitle("Preview")
+                        val count = vm.deckName?.let { "${vm.total} ${if (vm.total == 1) "card" else "cards"} in $it" }
+                            ?: "${vm.total} ${if (vm.total == 1) "artwork matches" else "artworks match"}"
                         Text(
-                            "${vm.total} ${if (vm.total == 1) "artwork matches" else "artworks match"} · tap one to preview it",
+                            "$count · tap one to preview it",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -194,7 +219,7 @@ fun ScryWallScreen(vm: MainViewModel = viewModel()) {
                     )
                 }
                 Text(
-                    "Picks a random card from the whole search, not just the five above.",
+                    "Picks a random card from the whole ${if (moxfield) "deck" else "search"}, not just the five above.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -301,7 +326,10 @@ private fun StatusCard(vm: MainViewModel) {
                 Text("${vm.lastCard} · set $ago", style = MaterialTheme.typography.bodyMedium)
             }
             Text(
-                if (vm.rotating) "Changes ${vm.activeInterval.phrase} from: ${vm.activeQuery}"
+                if (vm.rotating) {
+                    val from = if (vm.activeSource == Source.MOXFIELD) "Moxfield deck" else "search"
+                    "Changes ${vm.activeInterval.phrase} from $from: ${vm.activeQuery}"
+                }
                 else "Not changing automatically.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
