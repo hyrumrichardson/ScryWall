@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A card outline with a mountain-and-sun scene inside. Safe zone is the central 66dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- card body -->
+    <path
+        android:fillColor="#E8C872"
+        android:pathData="M39,28 L69,28 Q73,28 73,32 L73,76 Q73,80 69,80 L39,80 Q35,80 35,76 L35,32 Q35,28 39,28 Z" />
+    <!-- art window -->
+    <path
+        android:fillColor="#2E3D57"
+        android:pathData="M39,34 L69,34 L69,58 L39,58 Z" />
+    <!-- sun -->
+    <path
+        android:fillColor="#F4E3A8"
+        android:pathData="M62,41 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+    <!-- mountains -->
+    <path
+        android:fillColor="#7FA6C9"
+        android:pathData="M39,58 L49,44 L55,52 L59,47 L69,58 Z" />
+    <!-- text lines -->
+    <path
+        android:fillColor="#2E3D57"
+        android:pathData="M39,63 L69,63 L69,66 L39,66 Z M39,70 L61,70 L61,73 L39,73 Z" />
+</vector>
