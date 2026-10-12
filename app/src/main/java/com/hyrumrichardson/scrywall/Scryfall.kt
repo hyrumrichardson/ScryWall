@@ -21,7 +21,16 @@ data class Card(
     val artUrl: String?,
     val cardUrl: String?,
     val thumbUrl: String?,
+    val setName: String = "",
+    val setCode: String = "",
 ) {
+    /** "Theros Beyond Death (THB)", or blank when the set is unknown. */
+    val setLabel: String
+        get() = when {
+            setName.isNotBlank() && setCode.isNotBlank() -> "$setName (${setCode.uppercase()})"
+            else -> setName.ifBlank { setCode.uppercase() }
+        }
+
     fun imageUrl(style: ImageStyle): String? = when (style) {
         ImageStyle.ART -> artUrl ?: cardUrl
         ImageStyle.CARD -> cardUrl ?: artUrl
@@ -145,18 +154,22 @@ object Scryfall {
             artUrl = str("art_crop"),
             cardUrl = str("png") ?: str("large") ?: str("normal"),
             thumbUrl = str("normal") ?: str("small"),
+            setName = o.optString("set_name"),
+            setCode = o.optString("set"),
         )
         return card.takeIf { it.artUrl != null || it.cardUrl != null }
     }
 
     /** Builds image URLs straight from a Scryfall card id, without an API call. */
-    fun cardFromId(id: String, name: String): Card {
+    fun cardFromId(id: String, name: String, setName: String = "", setCode: String = ""): Card {
         fun url(type: String, ext: String) = "https://cards.scryfall.io/$type/front/${id[0]}/${id[1]}/$id.$ext"
         return Card(
             name = name,
             artUrl = url("art_crop", "jpg"),
             cardUrl = url("png", "png"),
             thumbUrl = url("normal", "jpg"),
+            setName = setName,
+            setCode = setCode,
         )
     }
 }

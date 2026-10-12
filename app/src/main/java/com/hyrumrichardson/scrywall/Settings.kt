@@ -110,6 +110,11 @@ class Prefs(context: Context) {
         get() = sp.getString("lastCard", "") ?: ""
         set(v) = sp.edit().putString("lastCard", v).apply()
 
+    /** Set of the current wallpaper's printing, e.g. "Theros Beyond Death (THB)". */
+    var lastSet: String
+        get() = sp.getString("lastSet", "") ?: ""
+        set(v) = sp.edit().putString("lastSet", v).apply()
+
     var lastChanged: Long
         get() = sp.getLong("lastChanged", 0L)
         set(v) = sp.edit().putLong("lastChanged", v).apply()

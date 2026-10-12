@@ -47,6 +47,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     var activeDeckName by mutableStateOf(prefs.activeDeckName); private set
     var activeInterval by mutableStateOf(prefs.interval); private set
     var lastCard by mutableStateOf(prefs.lastCard); private set
+    var lastSet by mutableStateOf(prefs.lastSet); private set
     var lastChanged by mutableLongStateOf(prefs.lastChanged); private set
     var message by mutableStateOf<String?>(null); private set
 
@@ -164,6 +165,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 activeDeckName = prefs.activeDeckName
                 activeInterval = interval
                 lastCard = name
+                lastSet = prefs.lastSet
                 lastChanged = prefs.lastChanged
                 message = "Wallpaper set to $name."
             } catch (e: CancellationException) {
@@ -186,6 +188,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val name = WallpaperSetter.changeNow(getApplication())
                 lastCard = name
+                lastSet = prefs.lastSet
                 lastChanged = prefs.lastChanged
                 activeDeckName = prefs.activeDeckName
                 message = "Wallpaper set to $name."

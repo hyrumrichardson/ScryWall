@@ -148,6 +148,7 @@ object WallpaperSetter {
             out.recycle()
         }
         prefs.lastCard = card.name
+        prefs.lastSet = card.setLabel
         prefs.lastChanged = System.currentTimeMillis()
         return card.name
     }

@@ -54,7 +54,12 @@ object Moxfield {
                 val card = entries.optJSONObject(key)?.optJSONObject("card") ?: return@forEach
                 val sid = card.optString("scryfall_id")
                 if (sid.length > 2 && sid !in cards) {
-                    cards[sid] = Scryfall.cardFromId(sid, card.optString("name"))
+                    cards[sid] = Scryfall.cardFromId(
+                        sid,
+                        card.optString("name"),
+                        setName = card.optString("set_name"),
+                        setCode = card.optString("set"),
+                    )
                 }
             }
         }

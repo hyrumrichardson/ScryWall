@@ -323,7 +323,17 @@ private fun StatusCard(vm: MainViewModel) {
             Text("Current wallpaper", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             if (vm.lastCard.isNotBlank()) {
                 val ago = DateUtils.getRelativeTimeSpanString(vm.lastChanged).toString()
-                Text("${vm.lastCard} · set $ago", style = MaterialTheme.typography.bodyMedium)
+                Column {
+                    Text(vm.lastCard, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    if (vm.lastSet.isNotBlank()) {
+                        Text(vm.lastSet, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    Text(
+                        "Changed $ago",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Text(
                 if (vm.rotating) {
